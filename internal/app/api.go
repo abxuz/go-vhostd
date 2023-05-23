@@ -72,7 +72,7 @@ func (app *App) newApiServer(state *ApiState) *http.Server {
 		}
 	}
 
-	router.NoRoute(app.ServeFile)
+	router.NoRoute(app.ServeFrontendFile)
 
 	return &http.Server{
 		Addr:     state.Listen,
@@ -81,11 +81,11 @@ func (app *App) newApiServer(state *ApiState) *http.Server {
 	}
 }
 
-func (app *App) ServeFile(c *gin.Context) {
+func (app *App) ServeFrontendFile(c *gin.Context) {
 	app.apiStateLock.RLock()
 	defer app.apiStateLock.RUnlock()
 
-	fileHandler := app.embedFileHandler
+	fileHandler := app.frontendFileHandler
 	if app.apiState.PublicFileHandler != nil {
 		fileHandler = app.apiState.PublicFileHandler
 	}

@@ -11,8 +11,9 @@ import (
 )
 
 type App struct {
-	wg               *sync.WaitGroup
-	embedFileHandler http.Handler
+	wg                  *sync.WaitGroup
+	htmlFs              iofs.FS
+	frontendFileHandler http.Handler
 
 	config     string
 	configLock *sync.RWMutex
@@ -37,12 +38,10 @@ type App struct {
 	certStateLock *sync.RWMutex
 }
 
-func NewApp(c string, embedFs iofs.FS) *App {
+func NewApp(c string, htmlFs iofs.FS) *App {
 	return &App{
-		wg: &sync.WaitGroup{},
-		embedFileHandler: http.FileServer(&fs.NoAutoIndexFileSystem{
-			FileSystem: http.FS(embedFs),
-		}),
+		wg:     &sync.WaitGroup{},
+		htmlFs: htmlFs,
 
 		config:     c,
 		configLock: &sync.RWMutex{},
@@ -71,10 +70,17 @@ func NewApp(c string, embedFs iofs.FS) *App {
 func (app *App) Run() error {
 	gin.SetMode(gin.ReleaseMode)
 
+	frontendFs, err := iofs.Sub(app.htmlFs, "html")
+	if err != nil {
+		return err
+	}
+	app.frontendFileHandler = http.FileServer(&fs.NoAutoIndexFileSystem{
+		FileSystem: http.FS(frontendFs),
+	})
+
 	if err := app.ServiceReload(); err != nil {
 		return err
 	}
-
 	app.wg.Wait()
 	return nil
 }

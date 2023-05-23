@@ -242,10 +242,15 @@ func (app *App) getCertificate(certname string) (*tls.Certificate, error) {
 
 func (app *App) handleProxyError(rw http.ResponseWriter, req *http.Request, err error) {
 	if err == ErrVhostNotFound {
-		rw.WriteHeader(http.StatusNotFound)
+		app.ServeDefaultVhost(rw, req)
 		return
 	}
 	rw.WriteHeader(http.StatusBadGateway)
+}
+
+func (app *App) ServeDefaultVhost(rw http.ResponseWriter, req *http.Request) {
+	rw.WriteHeader(http.StatusForbidden)
+	rw.Write(HtmlContentForbidden)
 }
 
 func hostname(req *http.Request) string {

@@ -13,17 +13,17 @@ type Cmd struct {
 	cobra.Command
 
 	config string
-	fs     fs.FS
+	htmlFs fs.FS
 }
 
-func NewCmd(fs fs.FS) *Cmd {
+func NewCmd(htmlFs fs.FS) *Cmd {
 	c := &Cmd{
 		Command: cobra.Command{
 			Use:   filepath.Base(os.Args[0]),
 			Short: "vhost management system",
 			Args:  cobra.OnlyValidArgs,
 		},
-		fs: fs,
+		htmlFs: htmlFs,
 	}
 
 	c.Flags().StringVarP(&c.config, "config", "c", "config.yaml", "config file path")
@@ -34,7 +34,7 @@ func NewCmd(fs fs.FS) *Cmd {
 }
 
 func (c *Cmd) Run(cmd *cobra.Command, args []string) {
-	if err := app.NewApp(c.config, c.fs).Run(); err != nil {
+	if err := app.NewApp(c.config, c.htmlFs).Run(); err != nil {
 		c.PrintErrln(err)
 		os.Exit(1)
 	}
