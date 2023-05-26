@@ -62,7 +62,9 @@ func (c *Config) Encode() ([]byte, error) {
 }
 
 func (c *Config) EncodeTo(w io.Writer) error {
-	return yaml.NewEncoder(w).Encode(c)
+	encoder := yaml.NewEncoder(w)
+	defer encoder.Close()
+	return encoder.Encode(c)
 }
 
 func (c *Config) WriteFile(p string) error {
