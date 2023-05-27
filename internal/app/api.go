@@ -153,7 +153,7 @@ func (app *App) ApiGetConfig(c *gin.Context) {
 
 func (app *App) ApiSetConfig(c *gin.Context) {
 	cfg := &config.Config{}
-	if err := c.BindJSON(cfg); err != nil {
+	if err := c.ShouldBindJSON(cfg); err != nil {
 		c.Error(err)
 		return
 	}
@@ -180,7 +180,7 @@ func (app *App) ApiGetApiConfig(c *gin.Context) {
 
 func (app *App) ApiSetApiConfig(c *gin.Context) {
 	apiCfg := &config.Api{}
-	if err := c.BindJSON(apiCfg); err != nil {
+	if err := c.ShouldBindJSON(apiCfg); err != nil {
 		c.Error(err)
 		return
 	}
@@ -228,7 +228,7 @@ func (app *App) ApiGetVhostListen(c *gin.Context) {
 
 func (app *App) ApiSetVhostListen(c *gin.Context) {
 	data := &VhostListen{}
-	if err := c.BindJSON(data); err != nil {
+	if err := c.ShouldBindJSON(data); err != nil {
 		c.Error(err)
 		return
 	}

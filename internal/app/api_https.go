@@ -18,7 +18,7 @@ func (app *App) ApiGetHttpsConfig(c *gin.Context) {
 
 func (app *App) ApiSetHttpsConfig(c *gin.Context) {
 	httpsCfg := &config.Https{}
-	if err := c.BindJSON(httpsCfg); err != nil {
+	if err := c.ShouldBindJSON(httpsCfg); err != nil {
 		c.Error(err)
 		return
 	}
@@ -65,7 +65,7 @@ func (app *App) ApiGetHttpsVhost(c *gin.Context) {
 
 func (app *App) ApiAddHttpsVhost(c *gin.Context) {
 	data := &config.HttpsVhost{}
-	if err := c.BindJSON(data); err != nil {
+	if err := c.ShouldBindJSON(data); err != nil {
 		c.Error(err)
 		return
 	}
@@ -93,7 +93,7 @@ func (app *App) ApiDelHttpsVhost(c *gin.Context) {
 
 func (app *App) ApiModHttpsVhost(c *gin.Context) {
 	data := &config.HttpsVhost{}
-	if err := c.BindJSON(data); err != nil {
+	if err := c.ShouldBindJSON(data); err != nil {
 		c.Error(err)
 		return
 	}

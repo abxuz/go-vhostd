@@ -18,7 +18,7 @@ func (app *App) ApiGetCertConfig(c *gin.Context) {
 
 func (app *App) ApiSetCertConfig(c *gin.Context) {
 	list := make([]*config.Cert, 0)
-	if err := c.BindJSON(list); err != nil {
+	if err := c.ShouldBindJSON(list); err != nil {
 		c.Error(err)
 		return
 	}
@@ -93,7 +93,7 @@ func (app *App) ApiGetCert(c *gin.Context) {
 
 func (app *App) ApiAddCert(c *gin.Context) {
 	cert := &config.Cert{}
-	if err := c.BindJSON(cert); err != nil {
+	if err := c.ShouldBindJSON(cert); err != nil {
 		c.Error(err)
 		return
 	}
@@ -121,7 +121,7 @@ func (app *App) ApiDelCert(c *gin.Context) {
 
 func (app *App) ApiModCert(c *gin.Context) {
 	cert := &config.Cert{}
-	if err := c.BindJSON(cert); err != nil {
+	if err := c.ShouldBindJSON(cert); err != nil {
 		c.Error(err)
 		return
 	}

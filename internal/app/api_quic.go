@@ -18,7 +18,7 @@ func (app *App) ApiGetQuicConfig(c *gin.Context) {
 
 func (app *App) ApiSetQuicConfig(c *gin.Context) {
 	quicCfg := &config.Quic{}
-	if err := c.BindJSON(quicCfg); err != nil {
+	if err := c.ShouldBindJSON(quicCfg); err != nil {
 		c.Error(err)
 		return
 	}
@@ -65,7 +65,7 @@ func (app *App) ApiGetQuicVhost(c *gin.Context) {
 
 func (app *App) ApiAddQuicVhost(c *gin.Context) {
 	data := &config.QuicVhost{}
-	if err := c.BindJSON(data); err != nil {
+	if err := c.ShouldBindJSON(data); err != nil {
 		c.Error(err)
 		return
 	}
@@ -93,7 +93,7 @@ func (app *App) ApiDelQuicVhost(c *gin.Context) {
 
 func (app *App) ApiModQuicVhost(c *gin.Context) {
 	data := &config.QuicVhost{}
-	if err := c.BindJSON(data); err != nil {
+	if err := c.ShouldBindJSON(data); err != nil {
 		c.Error(err)
 		return
 	}
