@@ -35,6 +35,7 @@ type Mapping struct {
 	Path        string
 	Target      *url.URL
 	ProxyHeader bool
+	Redirect    bool
 }
 
 type Vhost struct {
@@ -111,6 +112,7 @@ func GenMapping(cfg *config.Mapping) (*Mapping, error) {
 		Path:        cfg.Path,
 		Target:      target,
 		ProxyHeader: cfg.ProxyHeader,
+		Redirect:    cfg.Redirect,
 	}, nil
 }
 

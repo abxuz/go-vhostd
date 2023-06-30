@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"crypto/tls"
 	"errors"
 	"io"
@@ -43,6 +44,9 @@ type ReverseProxyTransport struct {
 func (t *ReverseProxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err := t.Director(req); err != nil {
 		return nil, err
+	}
+	if req.Response != nil {
+		return req.Response, nil
 	}
 	return t.RoundTripper.RoundTrip(req)
 }
@@ -117,7 +121,7 @@ func (app *App) httpDirector(req *http.Request) error {
 		return ErrVhostNotFound
 	}
 
-	return app.vhostDirector(req, vhost.Mapping, "HTTP")
+	return app.vhostDirector(req, vhost.Mapping, "http")
 }
 
 func (app *App) httpsDirector(req *http.Request) error {
@@ -134,7 +138,7 @@ func (app *App) httpsDirector(req *http.Request) error {
 		return ErrVhostNotFound
 	}
 
-	return app.vhostDirector(req, vhost.Mapping, "HTTPS")
+	return app.vhostDirector(req, vhost.Mapping, "https")
 }
 
 func (app *App) quicDirector(req *http.Request) error {
@@ -151,7 +155,7 @@ func (app *App) quicDirector(req *http.Request) error {
 		return ErrVhostNotFound
 	}
 
-	return app.vhostDirector(req, vhost.Mapping, "HTTPS")
+	return app.vhostDirector(req, vhost.Mapping, "https")
 }
 
 func (app *App) vhostDirector(req *http.Request, mapping []*Mapping, proto string) error {
@@ -172,6 +176,23 @@ func (app *App) vhostDirector(req *http.Request, mapping []*Mapping, proto strin
 		req.URL.User = &user
 	}
 	req.URL.Host = t.Target.Host
+
+	if t.Redirect {
+		header := make(http.Header)
+		header.Set("Location", req.URL.String())
+		req.Response = &http.Response{
+			Status:        "Moved Permanently",
+			StatusCode:    http.StatusMovedPermanently,
+			Proto:         req.Proto,
+			ProtoMajor:    req.ProtoMajor,
+			ProtoMinor:    req.ProtoMinor,
+			Header:        header,
+			Body:          io.NopCloser(bytes.NewReader(nil)),
+			ContentLength: 0,
+			Request:       req,
+		}
+		return nil
+	}
 
 	// 规则与nginx保持一致
 	// 若target是带path信息的

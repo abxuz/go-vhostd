@@ -10,6 +10,7 @@ type Mapping struct {
 	Path        string `yaml:"path" json:"path"`
 	Target      string `yaml:"target" json:"target"`
 	ProxyHeader bool   `yaml:"proxy_header" json:"proxy_header"`
+	Redirect    bool   `yaml:"redirect" json:"redirect"`
 }
 
 type Vhost struct {
