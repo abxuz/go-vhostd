@@ -6,11 +6,17 @@ import (
 	"net/url"
 )
 
+type Header struct {
+	Key   string `yaml:"key" json:"key"`
+	Value string `yaml:"value" json:"value"`
+}
+
 type Mapping struct {
-	Path        string `yaml:"path" json:"path"`
-	Target      string `yaml:"target" json:"target"`
-	ProxyHeader bool   `yaml:"proxy_header" json:"proxy_header"`
-	Redirect    bool   `yaml:"redirect" json:"redirect"`
+	Path        string    `yaml:"path" json:"path"`
+	Target      string    `yaml:"target" json:"target"`
+	AddHeader   []*Header `yaml:"add_header" json:"add_header"`
+	ProxyHeader bool      `yaml:"proxy_header" json:"proxy_header"`
+	Redirect    bool      `yaml:"redirect" json:"redirect"`
 }
 
 type Vhost struct {

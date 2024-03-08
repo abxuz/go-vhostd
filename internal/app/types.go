@@ -34,6 +34,7 @@ type ApiState struct {
 type Mapping struct {
 	Path        string
 	Target      *url.URL
+	AddHeader   []*config.Header
 	ProxyHeader bool
 	Redirect    bool
 }
@@ -111,6 +112,7 @@ func GenMapping(cfg *config.Mapping) (*Mapping, error) {
 	return &Mapping{
 		Path:        cfg.Path,
 		Target:      target,
+		AddHeader:   cfg.AddHeader,
 		ProxyHeader: cfg.ProxyHeader,
 		Redirect:    cfg.Redirect,
 	}, nil
