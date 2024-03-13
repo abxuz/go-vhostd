@@ -221,8 +221,20 @@ func GenCert(cfg *config.Cert) (*Cert, error) {
 		switch block.Type {
 		case "CERTIFICATE":
 			cert.Certificate = append(cert.Certificate, block.Bytes)
+		case "PRIVATE KEY":
+			pk, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			cert.PrivateKey = pk
 		case "RSA PRIVATE KEY":
 			pk, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			cert.PrivateKey = pk
+		case "EC PRIVATE KEY":
+			pk, err := x509.ParseECPrivateKey(block.Bytes)
 			if err != nil {
 				return nil, err
 			}
