@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	DefaultTransport = &http.Transport{
+	HttpTransport = &http.Transport{
 		DialContext: (&net.Dialer{
 			Timeout:   5 * time.Second,
 			KeepAlive: 30 * time.Second,
@@ -27,6 +27,10 @@ var (
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 	}
+	QuicTransport = &http3.RoundTripper{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		EnableDatagrams: false,
+	}
 	LogDiscard  = log.New(io.Discard, "", log.LstdFlags)
 	NopDirector = func(*http.Request) {}
 
@@ -35,8 +39,9 @@ var (
 )
 
 type ReverseProxyTransport struct {
-	http.RoundTripper
-	Director func(*http.Request) error
+	QuicRoundTripper *http3.RoundTripper
+	HttpRoundTripper *http.Transport
+	Director         func(*http.Request) error
 }
 
 func (t *ReverseProxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -46,15 +51,21 @@ func (t *ReverseProxyTransport) RoundTrip(req *http.Request) (*http.Response, er
 	if req.Response != nil {
 		return req.Response, nil
 	}
-	return t.RoundTripper.RoundTrip(req)
+
+	if req.URL.Scheme == "http3" {
+		req.URL.Scheme = "https"
+		return t.QuicRoundTripper.RoundTrip(req)
+	}
+	return t.HttpRoundTripper.RoundTrip(req)
 }
 
 func (app *App) newHttpServer(state *HttpState) *http.Server {
 	handler := &httputil.ReverseProxy{
 		Director: NopDirector,
 		Transport: &ReverseProxyTransport{
-			RoundTripper: DefaultTransport,
-			Director:     app.httpDirector,
+			HttpRoundTripper: HttpTransport,
+			QuicRoundTripper: QuicTransport,
+			Director:         app.httpDirector,
 		},
 		ErrorLog:     LogDiscard,
 		ErrorHandler: app.handleProxyError,
@@ -70,8 +81,9 @@ func (app *App) newHttpsServer(state *HttpsState) *http.Server {
 	handler := &httputil.ReverseProxy{
 		Director: NopDirector,
 		Transport: &ReverseProxyTransport{
-			RoundTripper: DefaultTransport,
-			Director:     app.httpsDirector,
+			HttpRoundTripper: HttpTransport,
+			QuicRoundTripper: QuicTransport,
+			Director:         app.httpsDirector,
 		},
 		ErrorLog:     LogDiscard,
 		ErrorHandler: app.handleProxyError,
@@ -90,8 +102,9 @@ func (app *App) newQuicServer(state *QuicState) *http3.Server {
 	handler := &httputil.ReverseProxy{
 		Director: NopDirector,
 		Transport: &ReverseProxyTransport{
-			RoundTripper: DefaultTransport,
-			Director:     app.quicDirector,
+			HttpRoundTripper: HttpTransport,
+			QuicRoundTripper: QuicTransport,
+			Director:         app.quicDirector,
 		},
 		ErrorLog:     LogDiscard,
 		ErrorHandler: app.handleProxyError,
