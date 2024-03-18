@@ -253,6 +253,9 @@ func (c *MappingCfg) GetAddHeader() (http.Header, error) {
 		}
 		k := strings.TrimSpace(items[0])
 		v := strings.TrimSpace(items[1])
+		if k == "" {
+			return nil, errors.New("malform add_header")
+		}
 		header.Add(k, v)
 	}
 	return header, nil
