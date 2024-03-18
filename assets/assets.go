@@ -1,4 +1,13 @@
-package app
+package assets
+
+import (
+	"embed"
+	"io/fs"
+)
+
+//go:embed html
+var htmlFs embed.FS
+var Html, _ = fs.Sub(htmlFs, "html")
 
 var (
 	HtmlContentForbidden = []byte(`

@@ -1,41 +1,61 @@
 package cmd
 
 import (
-	"io/fs"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
+	_ "time/tzdata"
 
+	"github.com/abxuz/go-vhostd/internal/service"
+	_ "github.com/abxuz/go-vhostd/internal/service/logic"
 	"github.com/spf13/cobra"
-	"github.com/xbugio/go-vhostd/internal/app"
 )
 
-type Cmd struct {
-	cobra.Command
+func NewCmd() *cobra.Command {
+	var (
+		config string
+		init   bool
+	)
 
-	config string
-	htmlFs fs.FS
-}
+	c := &cobra.Command{
+		Use:  filepath.Base(os.Args[0]),
+		Args: cobra.OnlyValidArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			zone, err := time.LoadLocation("Asia/Shanghai")
+			if err != nil {
+				cmd.PrintErrln(err)
+				os.Exit(1)
+			}
+			time.Local = zone
 
-func NewCmd(htmlFs fs.FS) *Cmd {
-	c := &Cmd{
-		Command: cobra.Command{
-			Use:   filepath.Base(os.Args[0]),
-			Short: "vhost management system",
-			Args:  cobra.OnlyValidArgs,
+			service.Cfg.SetFilePath(config, init)
+			service.Proxy.Init()
+			service.Api.Init()
+
+			cfg, err := service.Cfg.LoadFromFile()
+			if err != nil {
+				cmd.PrintErrln(err)
+				os.Exit(1)
+			}
+			service.Cfg.SaveToMemory(cfg)
+
+			func() {
+				service.Cfg.MemoryLock(true)
+				defer service.Cfg.MemoryUnlock(true)
+				service.Proxy.Reload(cfg)
+				service.Api.Reload(cfg)
+			}()
+
+			sigs := make(chan os.Signal, 1)
+			signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+			<-sigs
 		},
-		htmlFs: htmlFs,
 	}
 
-	c.Flags().StringVarP(&c.config, "config", "c", "config.yaml", "config file path")
+	c.Flags().StringVarP(&config, "config", "c", "config.yaml", "config file path")
+	c.Flags().BoolVarP(&init, "init", "i", false, "auto initialize config file")
 	c.MarkFlagFilename("config")
-
-	c.Command.Run = c.Run
 	return c
-}
-
-func (c *Cmd) Run(cmd *cobra.Command, args []string) {
-	if err := app.NewApp(c.config, c.htmlFs).Run(); err != nil {
-		c.PrintErrln(err)
-		os.Exit(1)
-	}
 }

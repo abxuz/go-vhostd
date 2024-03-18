@@ -1,14 +1,7 @@
 package main
 
-import (
-	"embed"
-
-	"github.com/xbugio/go-vhostd/internal/cmd"
-)
-
-//go:embed html
-var htmlFs embed.FS
+import "github.com/abxuz/go-vhostd/internal/cmd"
 
 func main() {
-	cmd.NewCmd(&htmlFs).Execute()
+	cmd.NewCmd().Execute()
 }
