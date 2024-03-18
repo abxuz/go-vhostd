@@ -56,7 +56,6 @@ func (l *lApi) Init() {
 		v1.GET("/api-config", api.Api.GetApiConfig())
 		v1.POST("/api-config", api.Api.SetApiConfig())
 
-		v1.GET("/http-config", api.Http.GetConfig())
 		g := v1.Group("/http-vhost/")
 		{
 			g.POST("/", api.Http.AddVhost())
@@ -66,7 +65,6 @@ func (l *lApi) Init() {
 			g.GET("/:domain", api.Http.GetVhost())
 		}
 
-		v1.GET("/https-config", api.Https.GetConfig())
 		g = v1.Group("/https-vhost/")
 		{
 			g.POST("/", api.Https.AddVhost())
@@ -76,7 +74,6 @@ func (l *lApi) Init() {
 			g.GET("/:domain", api.Https.GetVhost())
 		}
 
-		v1.GET("/http3-config", api.Http3.GetConfig())
 		g = v1.Group("/http3-vhost/")
 		{
 			g.POST("/", api.Http3.AddVhost())

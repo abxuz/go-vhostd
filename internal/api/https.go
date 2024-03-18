@@ -12,16 +12,6 @@ var Https = &aHttps{}
 type aHttps struct {
 }
 
-func (a *aHttps) GetConfig() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		service.Cfg.MemoryLock(true)
-		defer service.Cfg.MemoryUnlock(true)
-
-		cfg, _ := service.Cfg.LoadFromMemory()
-		ctx.Set("resp", model.NewApiResponse(0).SetData(cfg.Https))
-	}
-}
-
 func (a *aHttps) ListVhost() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		service.Cfg.MemoryLock(true)

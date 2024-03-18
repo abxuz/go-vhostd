@@ -37,12 +37,11 @@ func (l *lCfg) SetFilePath(config string, init bool) {
 		return
 	}
 
-	cfg := model.Cfg{
+	l.SaveToFile(model.Cfg{
 		Api: &model.ApiCfg{
 			Listen: []string{":80"},
 		},
-	}
-	l.SaveToFile(cfg)
+	})
 }
 
 func (l *lCfg) FileLock(readonly bool) {
@@ -106,17 +105,11 @@ func (l *lCfg) MemoryUnlock(readonly bool) {
 }
 
 func (l *lCfg) LoadFromMemory() (cfg model.Cfg, err error) {
-	l.memCfgLock.RLock()
-	defer l.memCfgLock.RUnlock()
-
 	cfg = l.memCfg
 	return
 }
 
 func (l *lCfg) SaveToMemory(cfg model.Cfg) error {
-	l.memCfgLock.Lock()
-	defer l.memCfgLock.Unlock()
-
 	l.autofill(&cfg)
 	if err := cfg.CheckValid(); err != nil {
 		return err

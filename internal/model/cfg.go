@@ -36,11 +36,10 @@ func (c *Cfg) CheckValid() error {
 		}
 	}
 
-	if !bslice.Unique(
-		append(c.Http.Listen, c.Https.Listen...),
-		func(s string) string { return s },
-	) {
-		return errors.New("duplicate listen address in http with https config")
+	listens := append(c.Api.Listen, c.Http.Listen...)
+	listens = append(listens, c.Https.Listen...)
+	if !bslice.Unique(listens, func(l string) string { return l }) {
+		return errors.New("duplicate listen address in api/http/https config")
 	}
 
 	if c.Http3 != nil {
@@ -101,8 +100,8 @@ func (c *HttpCfg) CheckValid() error {
 		}
 	}
 
-	if bslice.Unique(c.Vhost, func(h *HttpVhostCfg) string { return h.Domain }) {
-		return errors.New("duplicate domain found in vhost config")
+	if !bslice.Unique(c.Vhost, func(h *HttpVhostCfg) string { return h.Domain }) {
+		return errors.New("duplicate domain found in http vhost config")
 	}
 
 	return nil
@@ -120,8 +119,8 @@ func (c *HttpsCfg) CheckValid() error {
 		}
 	}
 
-	if bslice.Unique(c.Vhost, func(h *HttpsVhostCfg) string { return h.Domain }) {
-		return errors.New("duplicate domain found in vhost config")
+	if !bslice.Unique(c.Vhost, func(h *HttpsVhostCfg) string { return h.Domain }) {
+		return errors.New("duplicate domain found in https vhost config")
 	}
 
 	return nil
@@ -139,8 +138,8 @@ func (c *Http3Cfg) CheckValid() error {
 		}
 	}
 
-	if bslice.Unique(c.Vhost, func(h *Http3VhostCfg) string { return h.Domain }) {
-		return errors.New("duplicate domain found in vhost config")
+	if !bslice.Unique(c.Vhost, func(h *Http3VhostCfg) string { return h.Domain }) {
+		return errors.New("duplicate domain found in http3 vhost config")
 	}
 
 	return nil
@@ -284,6 +283,10 @@ func (c *CertCfg) CertInfo() (*CertInfo, error) {
 	i, err := x509.ParseCertificate(cert.Certificate[0])
 	if err != nil {
 		return nil, err
+	}
+
+	if i.DNSNames == nil {
+		i.DNSNames = []string{}
 	}
 
 	return &CertInfo{
