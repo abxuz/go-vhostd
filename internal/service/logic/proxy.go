@@ -3,6 +3,8 @@ package logic
 import (
 	"bytes"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
 	"errors"
 	"io"
 	"log"
@@ -22,6 +24,8 @@ import (
 	"github.com/abxuz/go-vhostd/utils"
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
+	"golang.org/x/crypto/ocsp"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -76,35 +80,34 @@ func (l *lProxy) Init() {
 	l.state = bstate.NewState[model.Cfg]()
 
 	var (
-		httpsCerts     = make(map[string]*tls.Certificate)
-		httpsCertsLock = new(sync.RWMutex)
-		http3Certs     = make(map[string]*tls.Certificate)
-		http3CertsLock = new(sync.RWMutex)
+		certs           = make(map[string]*tls.Certificate)
+		httpsCerts      = make(map[string]*tls.Certificate)
+		http3Certs      = make(map[string]*tls.Certificate)
+		certsUpdateLock = new(sync.RWMutex)
 	)
 
 	l.state.Watch("Proxy.UpdateCerts", func(_, cfg model.Cfg) {
-		certs := make(map[string]*tls.Certificate)
+		certsUpdateLock.Lock()
+		defer certsUpdateLock.Unlock()
+
+		clear(certs)
+		clear(httpsCerts)
+		clear(http3Certs)
+
 		for _, c := range cfg.Cert {
 			certs[c.Name], _ = c.Certificate()
 		}
-
-		httpsCertsLock.Lock()
-		clear(httpsCerts)
 		for _, v := range cfg.Https.Vhost {
 			httpsCerts[v.Domain] = certs[v.Cert]
 		}
-		httpsCertsLock.Unlock()
-
-		http3CertsLock.Lock()
-		clear(http3Certs)
 		for _, v := range cfg.Http3.Vhost {
 			http3Certs[v.Domain] = certs[v.Cert]
 		}
-		http3CertsLock.Unlock()
 	})
 
-	l.getHttpsCertificate = l.newGetCertificateFunc(httpsCertsLock, httpsCerts)
-	l.getHttp3Certificate = l.newGetCertificateFunc(http3CertsLock, http3Certs)
+	l.getHttpsCertificate = l.newGetCertificateFunc(certsUpdateLock, httpsCerts)
+	l.getHttp3Certificate = l.newGetCertificateFunc(certsUpdateLock, http3Certs)
+	go l.timerUpdateOCSP(certsUpdateLock, certs)
 
 	var (
 		httpLock   = new(sync.RWMutex)
@@ -271,6 +274,119 @@ func (l *lProxy) newGetCertificateFunc(lock *sync.RWMutex, certs map[string]*tls
 			return nil, ErrCertNotFound
 		}
 		return cert, nil
+	}
+}
+
+func (l *lProxy) timerUpdateOCSP(lock *sync.RWMutex, certs map[string]*tls.Certificate) {
+	httpClient := http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   3 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+		Timeout: 3 * time.Second,
+	}
+
+	type OCSPRequest struct {
+		leaf   *x509.Certificate
+		issuer *x509.Certificate
+	}
+
+	timer := time.NewTicker(5 * time.Minute)
+	for range timer.C {
+
+		requests := make(map[string]OCSPRequest)
+
+		func() {
+			lock.RLock()
+			defer lock.RUnlock()
+
+			for key, cert := range certs {
+				if len(cert.Certificate) < 2 {
+					continue
+				}
+
+				if len(cert.Leaf.OCSPServer) == 0 {
+					continue
+				}
+
+				issuer, _ := x509.ParseCertificate(cert.Certificate[1])
+				requests[key] = OCSPRequest{
+					leaf:   cert.Leaf,
+					issuer: issuer,
+				}
+			}
+		}()
+
+		responsesLock := new(sync.Mutex)
+		responses := make(map[string]*ocsp.Response)
+
+		func() {
+			eg := &errgroup.Group{}
+			eg.SetLimit(10)
+
+			for key, request := range requests {
+				eg.Go(func() error {
+					der, err := ocsp.CreateRequest(request.leaf, request.issuer, nil)
+					if err != nil {
+						return err
+					}
+
+					uri := request.leaf.OCSPServer[0] + "/" + base64.StdEncoding.EncodeToString(der)
+					httpRequest, err := http.NewRequest(http.MethodGet, uri, nil)
+					if err != nil {
+						return err
+					}
+					httpRequest.Header.Add("Content-Language", "application/ocsp-request")
+					httpRequest.Header.Add("Accept", "application/ocsp-response")
+					httpResponse, err := httpClient.Do(httpRequest)
+					if err != nil {
+						return err
+					}
+					defer httpResponse.Body.Close()
+					der, err = io.ReadAll(httpResponse.Body)
+					if err != nil {
+						return err
+					}
+
+					response, err := ocsp.ParseResponse(der, request.issuer)
+					if err != nil {
+						return err
+					}
+
+					responsesLock.Lock()
+					responses[key] = response
+					responsesLock.Unlock()
+					return nil
+				})
+			}
+
+			eg.Wait()
+		}()
+
+		func() {
+			if len(responses) == 0 {
+				return
+			}
+
+			lock.Lock()
+			defer lock.Unlock()
+
+			for key, response := range responses {
+				cert, ok := certs[key]
+				if !ok {
+					continue
+				}
+				cert.OCSPStaple = response.Raw
+			}
+		}()
 	}
 }
 

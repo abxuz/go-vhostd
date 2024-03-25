@@ -274,6 +274,16 @@ func (c *CertCfg) Certificate() (*tls.Certificate, error) {
 	if len(cert.Certificate) == 0 {
 		return nil, errors.New("no certificate found")
 	}
+
+	for i, der := range cert.Certificate {
+		x509Cert, err := x509.ParseCertificate(der)
+		if err != nil {
+			return nil, err
+		}
+		if i == 0 {
+			cert.Leaf = x509Cert
+		}
+	}
 	return cert, nil
 }
 
@@ -283,21 +293,21 @@ func (c *CertCfg) CertInfo() (*CertInfo, error) {
 		return nil, err
 	}
 
-	i, err := x509.ParseCertificate(cert.Certificate[0])
-	if err != nil {
-		return nil, err
+	info := &CertInfo{
+		Domain:     cert.Leaf.DNSNames,
+		Issuer:     cert.Leaf.Issuer.String(),
+		ValidStart: cert.Leaf.NotBefore.Local().Format(time.DateTime),
+		ValidStop:  cert.Leaf.NotAfter.Local().Format(time.DateTime),
 	}
 
-	if i.DNSNames == nil {
-		i.DNSNames = []string{}
+	for _, ip := range cert.Leaf.IPAddresses {
+		info.Domain = append(info.Domain, ip.String())
 	}
 
-	return &CertInfo{
-		Domain:     i.DNSNames,
-		Issuer:     i.Issuer.String(),
-		ValidStart: i.NotBefore.Local().Format(time.DateTime),
-		ValidStop:  i.NotAfter.Local().Format(time.DateTime),
-	}, nil
+	if info.Domain == nil {
+		info.Domain = []string{}
+	}
+	return info, nil
 }
 
 func (c *CertCfg) CheckValid() error {
