@@ -361,9 +361,11 @@ func (l *lProxy) timerUpdateOCSP(lock *sync.RWMutex, certs map[string]*tls.Certi
 						return err
 					}
 
-					responsesLock.Lock()
-					responses[key] = response
-					responsesLock.Unlock()
+					if response.Status == ocsp.Good {
+						responsesLock.Lock()
+						responses[key] = response
+						responsesLock.Unlock()
+					}
 					return nil
 				})
 			}
