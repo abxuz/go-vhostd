@@ -299,7 +299,7 @@ func (l *lProxy) timerUpdateOCSP(lock *sync.RWMutex, certs map[string]*tls.Certi
 		issuer *x509.Certificate
 	}
 
-	timer := time.NewTicker(5 * time.Minute)
+	timer := time.NewTicker(time.Minute)
 	for range timer.C {
 
 		requests := make(map[string]OCSPRequest)
@@ -318,20 +318,41 @@ func (l *lProxy) timerUpdateOCSP(lock *sync.RWMutex, certs map[string]*tls.Certi
 				}
 
 				issuer, _ := x509.ParseCertificate(cert.Certificate[1])
-				requests[key] = OCSPRequest{
-					leaf:   cert.Leaf,
-					issuer: issuer,
+				if cert.OCSPStaple == nil {
+					requests[key] = OCSPRequest{
+						leaf:   cert.Leaf,
+						issuer: issuer,
+					}
+					continue
+				}
+
+				resp, err := ocsp.ParseResponse(cert.OCSPStaple, issuer)
+				if err != nil || resp.Status != ocsp.Good {
+					requests[key] = OCSPRequest{
+						leaf:   cert.Leaf,
+						issuer: issuer,
+					}
+					continue
+				}
+
+				if time.Until(resp.NextUpdate) < 10*time.Minute {
+					requests[key] = OCSPRequest{
+						leaf:   cert.Leaf,
+						issuer: issuer,
+					}
 				}
 			}
 		}()
 
-		responsesLock := new(sync.Mutex)
+		if len(requests) == 0 {
+			continue
+		}
 		responses := make(map[string]*ocsp.Response)
 
 		func() {
 			eg := &errgroup.Group{}
 			eg.SetLimit(10)
-
+			responsesLock := new(sync.Mutex)
 			for key, request := range requests {
 				eg.Go(func() error {
 					der, err := ocsp.CreateRequest(request.leaf, request.issuer, nil)
@@ -373,11 +394,11 @@ func (l *lProxy) timerUpdateOCSP(lock *sync.RWMutex, certs map[string]*tls.Certi
 			eg.Wait()
 		}()
 
-		func() {
-			if len(responses) == 0 {
-				return
-			}
+		if len(responses) == 0 {
+			continue
+		}
 
+		func() {
 			lock.Lock()
 			defer lock.Unlock()
 
