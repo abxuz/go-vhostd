@@ -67,14 +67,7 @@ func (l *lCfg) LoadFromFile() (cfg model.Cfg, err error) {
 		return
 	}
 	defer file.Close()
-
-	cfg, err = l.decode(file)
-	if err != nil {
-		return
-	}
-
-	l.autofill(&cfg)
-	return
+	return l.decode(file)
 }
 
 func (l *lCfg) SaveToFile(cfg model.Cfg) error {
@@ -83,8 +76,6 @@ func (l *lCfg) SaveToFile(cfg model.Cfg) error {
 		return err
 	}
 	defer file.Close()
-
-	l.autofill(&cfg)
 	return l.encode(&cfg, file)
 }
 
@@ -124,11 +115,13 @@ func (l *lCfg) decode(r io.Reader) (cfg model.Cfg, err error) {
 	if err != nil {
 		return
 	}
+	l.autofill(&cfg)
 	err = cfg.CheckValid()
 	return
 }
 
 func (l *lCfg) encode(cfg *model.Cfg, w io.Writer) error {
+	l.autofill(cfg)
 	if err := cfg.CheckValid(); err != nil {
 		return err
 	}
