@@ -435,8 +435,9 @@ func (l *lProxy) newReverseProxy(lock *sync.RWMutex, mappings map[string][]*Mapp
 
 		req.URL.Scheme = t.Target.Scheme
 		if t.Target.User != nil {
-			user := *t.Target.User
-			req.URL.User = &user
+			username := t.Target.User.Username()
+			password, _ := t.Target.User.Password()
+			req.SetBasicAuth(username, password)
 		}
 		req.URL.Host = t.Target.Host
 
