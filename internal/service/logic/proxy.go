@@ -51,8 +51,9 @@ var (
 
 type Mapping struct {
 	model.MappingCfg
-	Target    *url.URL
-	AddHeader http.Header
+	Target           *url.URL
+	AddHeader        http.Header
+	BasicAuthEncoded *bset.SetString
 }
 
 type GetCertificateFunc = func(chi *tls.ClientHelloInfo) (*tls.Certificate, error)
@@ -128,6 +129,7 @@ func (l *lProxy) Init() {
 				mapping.MappingCfg = *m
 				mapping.Target, _ = m.GetTarget()
 				mapping.AddHeader, _ = m.GetAddHeader()
+				mapping.BasicAuthEncoded, _ = m.GetBasicAuthEncoded()
 				mappings = append(mappings, mapping)
 			}
 			httpVhost[vhost.Domain] = mappings
@@ -143,6 +145,7 @@ func (l *lProxy) Init() {
 				mapping.MappingCfg = *m
 				mapping.Target, _ = m.GetTarget()
 				mapping.AddHeader, _ = m.GetAddHeader()
+				mapping.BasicAuthEncoded, _ = m.GetBasicAuthEncoded()
 				mappings = append(mappings, mapping)
 			}
 			httpsVhost[vhost.Domain] = mappings
@@ -158,6 +161,7 @@ func (l *lProxy) Init() {
 				mapping.MappingCfg = *m
 				mapping.Target, _ = m.GetTarget()
 				mapping.AddHeader, _ = m.GetAddHeader()
+				mapping.BasicAuthEncoded, _ = m.GetBasicAuthEncoded()
 				mappings = append(mappings, mapping)
 			}
 			http3Vhost[vhost.Domain] = mappings
@@ -433,6 +437,33 @@ func (l *lProxy) newReverseProxy(lock *sync.RWMutex, mappings map[string][]*Mapp
 			return nil, nil, ErrVhostNotFound
 		}
 
+		if t.BasicAuthEncoded.Size() > 0 {
+			ok := func() bool {
+				auth := req.Header.Get("Authorization")
+				if len(auth) < 7 {
+					return false
+				}
+				return t.BasicAuthEncoded.Has(auth[6:])
+			}()
+
+			if !ok {
+				header := make(http.Header)
+				header.Set("WWW-Authenticate", "Basic realm=Authorization Required")
+				resp := &http.Response{
+					Status:        http.StatusText(http.StatusUnauthorized),
+					StatusCode:    http.StatusUnauthorized,
+					Proto:         req.Proto,
+					ProtoMajor:    req.ProtoMajor,
+					ProtoMinor:    req.ProtoMinor,
+					Header:        header,
+					Body:          io.NopCloser(bytes.NewReader(nil)),
+					ContentLength: 0,
+					Request:       req,
+				}
+				return resp, t.AddHeader, nil
+			}
+		}
+
 		req.URL.Scheme = t.Target.Scheme
 		if t.Target.User != nil {
 			username := t.Target.User.Username()
@@ -445,7 +476,7 @@ func (l *lProxy) newReverseProxy(lock *sync.RWMutex, mappings map[string][]*Mapp
 			header := make(http.Header)
 			header.Set("Location", req.URL.String())
 			resp := &http.Response{
-				Status:        "Moved Permanently",
+				Status:        http.StatusText(http.StatusMovedPermanently),
 				StatusCode:    http.StatusMovedPermanently,
 				Proto:         req.Proto,
 				ProtoMajor:    req.ProtoMajor,
@@ -470,6 +501,9 @@ func (l *lProxy) newReverseProxy(lock *sync.RWMutex, mappings map[string][]*Mapp
 		} else {
 			req.Host = req.URL.Host
 			req.Header.Del("X-Forwarded-For")
+			if t.BasicAuthEncoded.Size() > 0 {
+				req.Header.Del("Authorization")
+			}
 		}
 		return nil, t.AddHeader, nil
 	}

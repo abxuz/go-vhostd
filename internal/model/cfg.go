@@ -3,6 +3,7 @@ package model
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/abxuz/b-tools/bmap"
+	"github.com/abxuz/b-tools/bset"
 	"github.com/abxuz/b-tools/bslice"
 	"github.com/abxuz/go-vhostd/utils"
 )
@@ -215,6 +217,7 @@ type MappingCfg struct {
 	Path        string   `yaml:"path" json:"path"`
 	Target      string   `yaml:"target" json:"target"`
 	AddHeader   []string `yaml:"add_header" json:"add_header"`
+	BasicAuth   []string `yaml:"basic_auth" json:"basic_auth"`
 	ProxyHeader bool     `yaml:"proxy_header" json:"proxy_header"`
 	Redirect    bool     `yaml:"redirect" json:"redirect"`
 }
@@ -230,6 +233,11 @@ func (c *MappingCfg) CheckValid() error {
 	}
 
 	_, err = c.GetAddHeader()
+	if err != nil {
+		return err
+	}
+
+	_, err = c.GetBasicAuthEncoded()
 	return err
 }
 
@@ -259,6 +267,18 @@ func (c *MappingCfg) GetAddHeader() (http.Header, error) {
 		header.Add(k, v)
 	}
 	return header, nil
+}
+
+func (c *MappingCfg) GetBasicAuthEncoded() (*bset.SetString, error) {
+	set := bset.New[string]()
+	for _, auth := range c.BasicAuth {
+		auth = base64.StdEncoding.EncodeToString([]byte(auth))
+		if set.Has(auth) {
+			return nil, errors.New("duplicate basic auth")
+		}
+		set.Set(auth)
+	}
+	return set, nil
 }
 
 type CertCfg struct {
