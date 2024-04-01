@@ -156,6 +156,9 @@ func (l *lCfg) autofill(cfg *model.Cfg) {
 			if h.AddHeader == nil {
 				h.AddHeader = make([]string, 0)
 			}
+			if h.BasicAuth == nil {
+				h.BasicAuth = make([]string, 0)
+			}
 		}
 	}
 
