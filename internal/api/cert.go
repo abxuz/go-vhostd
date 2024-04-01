@@ -1,6 +1,9 @@
 package api
 
 import (
+	"slices"
+	"strings"
+
 	"github.com/abxuz/b-tools/bslice"
 	"github.com/abxuz/go-vhostd/internal/model"
 	"github.com/abxuz/go-vhostd/internal/service"
@@ -36,6 +39,10 @@ func (a *aCert) List() gin.HandlerFunc {
 				CertInfo: info,
 			})
 		}
+
+		slices.SortStableFunc(list, func(a, b *CertResponse) int {
+			return strings.Compare(a.Name, b.Name)
+		})
 
 		ctx.Set("resp", model.NewApiResponse(0).SetData(list))
 	}

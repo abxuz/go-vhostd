@@ -1,6 +1,9 @@
 package api
 
 import (
+	"slices"
+	"strings"
+
 	"github.com/abxuz/b-tools/bslice"
 	"github.com/abxuz/go-vhostd/internal/model"
 	"github.com/abxuz/go-vhostd/internal/service"
@@ -18,7 +21,15 @@ func (a *aHttps) ListVhost() gin.HandlerFunc {
 		defer service.Cfg.MemoryUnlock(true)
 
 		cfg, _ := service.Cfg.LoadFromMemory()
-		ctx.Set("resp", model.NewApiResponse(0).SetData(cfg.Https.Vhost))
+
+		vhost := make([]*model.HttpsVhostCfg, len(cfg.Https.Vhost))
+		copy(vhost, cfg.Https.Vhost)
+
+		slices.SortStableFunc(vhost, func(a, b *model.HttpsVhostCfg) int {
+			return strings.Compare(a.Name, b.Name)
+		})
+
+		ctx.Set("resp", model.NewApiResponse(0).SetData(vhost))
 	}
 }
 
