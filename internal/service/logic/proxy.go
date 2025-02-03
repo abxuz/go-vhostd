@@ -249,7 +249,7 @@ func (l *lProxy) reloadHttp3Server(cfg *model.Http3Cfg) {
 			Handler:         l.http3Handler,
 			TLSConfig:       &tls.Config{GetCertificate: l.getHttp3Certificate},
 			EnableDatagrams: true,
-			QuicConfig: &quic.Config{
+			QUICConfig: &quic.Config{
 				EnableDatagrams: true,
 				Allow0RTT:       true,
 			},
